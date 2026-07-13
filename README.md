@@ -14,26 +14,52 @@ You need an **OpenRouter API key** (the app is a thin client over a hosted model
 run without one). Getting one takes about 90 seconds at
 [openrouter.ai/keys](https://openrouter.ai/keys) — sign in, create a key, paste it in below.
 
-```bash
-cp .env.example .env        # Windows: copy .env.example .env
-# open .env and paste your key into OPENROUTER_API_KEY
+Create a file called `.env` next to this README, with your key in it:
 
+```bash
+OPENROUTER_API_KEY=sk-or-...        # required
+OPENROUTER_MODEL=openai/gpt-4o-mini # optional; any tool-calling model on OpenRouter
+```
+
+Then:
+
+```bash
 docker compose up           # web app on http://localhost:8501
 ```
 
 Runs on macOS (Apple Silicon or Intel) and Windows 11, ≤16 GB RAM, no GPU — all inference is
 remote, so nothing heavy runs on your machine.
 
-Prefer the terminal, or don't want Docker?
+Prefer the terminal, or don't want Docker? **Use Python 3.11** — the pins match the container's
+`python:3.11-slim`, and `pandas==3.0.3` has no wheel for 3.14, which is the system `python3` on
+many machines.
 
 ```bash
+python3.11 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+
 python cli.py "What are the main genes involved in lung cancer?"
 python cli.py                                   # interactive REPL
 
 # or, inside the container:
 docker compose run --rm web python cli.py "What are the main genes involved in lung cancer?"
 ```
+
+### Run the tests
+
+```bash
+python evals.py     # or: docker compose run --rm web python evals.py
+```
+
+**Tier 1 needs no API key and no network** (13 checks): deterministic assertions on `skills.py`,
+with every expected value derived from the CSV *at test time* — see (b) for why that matters — plus
+a mutation test proving the suite would go red if the data and the implementation drifted apart,
+a check that every tool schema matches the signature of the function it dispatches to, and a check
+that `docs/DATA_DICTIONARY.md` still quotes the live `UNIT_NOTE`.
+**Tier 2** runs only if `OPENROUTER_API_KEY` is set (22 more, 35 in total): the four canonical
+queries end to end, asserting the right skill fired with the right arguments, that every skill call
+returned a usable result, that the genes and values it returned are the CSV's own, and that every
+number in the answer text traces back to a skill result.
 
 ## How it works
 
@@ -60,61 +86,66 @@ trusting the model.
 
 ## The four canonical queries
 
-Real output, lightly abridged (traces trimmed; the app prints them in full).
+Verbatim from `python cli.py "<query>"` on one run, traces abridged (the app prints them in full).
+The model's prose is generated, so its wording will vary between runs; every **gene and number
+below is rendered by the adapter from the skill result**, so those do not vary.
 
 **1. "How can you help me?"** — answered from a `describe_capabilities()` skill result, so the
 tool's stated abilities are the ones it actually has, not the ones a model imagines a
 biostatistics tool should have. It reports what it *cannot* do as carefully as what it can.
 
-> I can list the genes recorded for an indication; report a gene's recorded median value within
-> one indication; show a gene's values across every indication where it appears; resolve aliases
-> to approved symbols — for example, **HER2 → ERBB2** — and tell you when I do.
->
-> It does **not** record units, sample sizes, dispersion, baselines, or sample-level data.
-> Therefore I cannot infer whether a value is high or low, compare groups, calculate cross-gene
-> aggregates, or draw statistical or therapeutic conclusions.
+> I can list the genes recorded for a cancer, report a gene's recorded median for a specific
+> cancer, and show one gene's values across cancers. I can also resolve aliases such as HER2 to
+> ERBB2 and identify when a cancer or gene has no row in this dataset.
 
-**2. "What are the main genes involved in lung cancer?"**
+...above a code-authored capability list (`I CAN` / `I WILL NOT`), of which the load-bearing entry
+is: *"Tell you a gene is not involved in a cancer. I can only say this file holds no row for it —
+and the file is not a map of the biology."*
 
-> For **lung cancer**, this dataset contains rows for these genes: ALK, RET, ROS1, STK11, KRAS.
->
-> These are genes present in the dataset for the lung cohort, not necessarily validated
-> therapeutic targets or a complete list of genes involved in lung cancer.
+**2. "What are the main genes involved in lung cancer?"** — note what it does with *"main"*: it
+declines the ranking the word invites, because nothing in this file supports one.
+
+> The dataset lists the genes recorded for lung cancer below. This is a dataset listing, not a
+> statement about biological importance.
 >
 > ```
-> get_targets({"cancer_name": "lung cancer"})
->   -> {"status": "ok", "cancer": "lung", "genes": ["ALK", "RET", "ROS1", "STK11", "KRAS"], ...}
+>   ALK  KRAS  RET  ROS1  STK11
 > ```
 
 **3. "What is the median value expression of genes involved in breast cancer?"**
 
-> | Gene | Median value | | Gene | Median value |
-> |---|---:|---|---|---:|
-> | BRCA2 | 0.032 | | ESR1 | 0.716 |
-> | BRCA1 | 0.094 | | MAP3K1 | 0.701 |
-> | TP53 | 0.233 | | ERBB2 | 0.42 |
-> | GATA3 | 0.602 | | PIK3CA | 0.449 |
-> | CDH1 | 0.561 | | AKT1 | 0.278 |
->
-> **Interpretation note:** This question has two readings and only one is well-posed. The answer
-> given is the per-gene table. The other reading — a single median across the 10 genes — is not
-> computed, and no skill here will compute it. It would be a median of medians: it aggregates over
-> genes rather than samples, and medians do not compose […]
+> The dataset's per-gene median values for the breast cancer cohort are shown in the table. There
+> is no single meaningful median across all genes; the dataset does not record the information
+> needed to calculate one.
 
-That note is **code-authored**, not model improv, and no aggregation function exists anywhere in
-the repo to produce the number it declines to give. (`ERBB2` here is `HER2` in the source CSV —
-one gene under two identifiers; the full story is in
-[`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md).)
+| Gene | Median value | | Gene | Median value |
+|---|---:|---|---|---:|
+| AKT1 | 0.278 | | ESR1 | 0.716 |
+| BRCA1 | 0.094 | | GATA3 | 0.602 |
+| BRCA2 | 0.032 | | MAP3K1 | 0.701 |
+| CDH1 | 0.561 | | PIK3CA | 0.449 |
+| ERBB2 | 0.420 | | TP53 | 0.233 |
+
+Ordered by gene, never by value — an ordering is itself a claim, and without a unit these genes are
+not on a common scale to be ranked on. The refusal to produce one number is **code-authored**
+(`skills.AGGREGATE_NOTE`), not model improv, and no aggregation function exists anywhere in the
+repo to produce the number it declines to give. `ERBB2` here is `HER2` in the source CSV — one gene
+under two identifiers, disclosed on screen; the full story is in
+[`docs/DATA_DICTIONARY.md`](docs/DATA_DICTIONARY.md).
 
 **4. "What is the median value expression of genes involved in esophageal cancer?"** — esophageal
 is **not** in this dataset.
 
-> Esophageal cancer is not an indication in this dataset. The available cohorts are: breast,
-> colorectal, gastric, glioblastoma, lung, melanoma, ovarian, pancreatic, prostate, and renal.
+> This dataset has no rows for esophageal cancer. That is a gap in this dataset, not a conclusion
+> about the cancer itself.
 
-It invents no numbers and does not quietly answer about gastric instead. The tool schema's
-`cancer_name` is an `enum` generated from the CSV, so "esophageal" is not a call the model can
-make in the first place — more on why in (a) below.
+It invents no numbers and does not quietly answer about gastric instead. The refusal is
+**code-authored, not schema-enforced**, and that distinction is the interesting one:
+`get_targets` accepts free text (`engine._TERM_PARAM`), so "esophageal cancer" *does* reach the
+skill — `indications.resolve` then finds no cohort and the skill returns `status:
+unknown_indication` with the ten real cohorts attached. The tool refuses on its own authority and
+says what it does hold. `get_expressions`, by contrast, *is* enum-constrained, so no arbitrary
+cohort can ever be selected for a value lookup. Why the two differ is in (a) below.
 
 ## (a) Architecture, use, and trade-offs of the AI components
 
@@ -127,8 +158,9 @@ computes a value, ranks one, or decides what a table contains.
 
 **Why that's structural, not a policy.** The prompt does tell the model not to write numbers. But
 the guarantee doesn't rest on the model obeying that instruction: `app.py` and `cli.py` build the
-results table directly from `skill_calls[-1].result` — the return value of the last skill actually
-called — and never parse a number out of the model's own sentences. There is no code path from a
+results table directly from the last `get_expressions` result (`AnswerObject.result()`, which scans
+the recorded skill calls backwards by name) — and never parse a number out of the model's own
+sentences. There is no code path from a
 token the model emitted to a digit on screen. If a model ever ignored the prompt and narrated
 "0.5" in its prose, that digit still would not reach the table; it would just be a sentence sitting
 next to a table that disagreed with it.
@@ -203,7 +235,7 @@ superseded it. AI makes documentation cheap to produce, and cheap documentation 
 because there is no compiler for a paragraph.
 
 **Con: it over-builds by default.** Unprompted, this repo grew to roughly 3,229 lines of Python
-(from a ~470-line starting point) and 2,089 lines of Markdown, before being cut back to about 1,280
+(from a ~470-line starting point) and 2,089 lines of Markdown, before being cut back to about 1,500
 and well under 400 respectively — this document included. Left alone, an assistant proposed, among
 other things: vendoring the 43,000-row HGNC table to disambiguate 54 gene symbols (a 12-entry alias
 table covers what this dataset needs); an OncoTree/NCIt ontology to resolve 10 cohort names; an

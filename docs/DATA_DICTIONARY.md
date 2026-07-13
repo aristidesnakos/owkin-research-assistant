@@ -40,9 +40,9 @@ Consequences, enforced in code rather than requested in a prompt:
 - **No aggregate across genes.** A median of medians aggregates over *genes*, not samples. Medians
   do not compose, and the result has no biological referent. No such skill exists.
 
-`skills.py` attaches a version of this caveat (`UNIT_NOTE`), code-authored, to every result
-carrying a number — reproduced here in this document's own words, not copy-pasted, so treat
-`skills.py` as the source of truth for the exact wording a user sees:
+`skills.py` attaches this caveat (`UNIT_NOTE`), code-authored, to every result carrying a number.
+It is reproduced below **verbatim** from `skills.UNIT_NOTE`, which remains the source of truth: if
+the two ever disagree, the code is right and this file is stale.
 
 > The unit of median_value is not recorded anywhere in this dataset -- it is not TPM, FPKM, a z-score or a percentile, or if it is, nothing says so. Values can be reported, and compared for the same gene across cohorts, but no claim about 'high' or 'low' expression is supported, and two different genes are not on a known common scale.
 

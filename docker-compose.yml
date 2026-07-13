@@ -1,6 +1,6 @@
 # The web app: http://localhost:8501
 #
-#   cp .env.example .env    # then add your OpenRouter key
+#   create ./.env with OPENROUTER_API_KEY=sk-or-...
 #   docker compose up
 services:
   web:

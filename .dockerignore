@@ -4,7 +4,6 @@
 # Secrets. Non-negotiable.
 .env
 .env.*
-!.env.example
 
 # VCS and agent/editor state
 .git
@@ -24,10 +23,11 @@ venv/
 docs/
 README.md
 
-# Dev-only artifacts: the eval harness and its generated audit log are working
-# scaffolding (see .gitignore), not part of the deliverable, and must not bloat
-# or leak into the image. The data CSV is runtime-required and is NOT excluded.
-evals.py
+# Generated audit log: working scaffolding (see .gitignore), and it reached 555 KB during
+# development. It must not bloat or leak into the image. The data CSV is runtime-required
+# and is NOT excluded -- and neither is evals.py: the README's section (b) is built on that
+# suite, so a reviewer who only runs Docker must still be able to run it:
+#   docker compose run --rm web python evals.py
 query_audit.jsonl
 *.jsonl
 

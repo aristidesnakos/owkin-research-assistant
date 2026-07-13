@@ -133,6 +133,56 @@ def tier1() -> None:
         lambda: set(own) == {"get_targets", "get_expressions", "get_gene_profile", "describe_capabilities"},
     )
 
+    # Every tool schema must agree, name for name, with the function it dispatches to. The engine
+    # calls `_IMPLS[name](**arguments)`, so a schema that advertises `genes` while the function
+    # takes `genes_requested` is not a style inconsistency -- it is a skill that raises TypeError on
+    # every call. That shipped: the flagship breast-cancer query (get_targets, then get_expressions)
+    # was dead, and Tier 2 stayed green, because it asserted the call was MADE and never that it
+    # SUCCEEDED. This check needs no key and no network, and it is the reason that cannot recur.
+    import inspect
+
+    import engine
+
+    def schema_matches_signature() -> bool:
+        for tool in engine.SKILL_SCHEMAS:
+            fn = tool["function"]
+            name = fn["name"]
+            declared = set(fn["parameters"].get("properties", {}))
+            actual = set(inspect.signature(engine._IMPLS[name]).parameters)
+            assert declared == actual, (
+                f"{name}: schema declares {sorted(declared)}, "
+                f"but the function takes {sorted(actual)} -- the engine passes the model's "
+                f"arguments straight through as **arguments, so this skill cannot be called"
+            )
+        return True
+
+    check(
+        "every tool schema's parameters match its function's signature -- a skill the model is "
+        "told to call is a skill that can actually be called",
+        schema_matches_signature,
+    )
+
+    # The docs must not claim what the code does not do -- this repo's most damaging bug class,
+    # because a reviewer falsifies it by reading two files. DATA_DICTIONARY.md quotes UNIT_NOTE and
+    # names skills.py as the source of truth; it once quoted a version that no longer existed in
+    # code, and separately claimed an eval enforced the agreement when no such eval existed. It
+    # exists now, and it is why the quote may be trusted.
+    def dictionary_quotes_the_real_note() -> bool:
+        path = os.path.join(ROOT, "docs", "DATA_DICTIONARY.md")
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        assert skills.UNIT_NOTE in text, (
+            "docs/DATA_DICTIONARY.md no longer quotes skills.UNIT_NOTE verbatim -- the document "
+            "says the code is the source of truth, so the document is now stale"
+        )
+        return True
+
+    check(
+        "docs/DATA_DICTIONARY.md quotes skills.UNIT_NOTE verbatim -- the doc cannot drift from "
+        "the caveat users actually see",
+        dictionary_quotes_the_real_note,
+    )
+
     mutation_test()
 
 _MUTATION_PROBE = """
@@ -187,12 +237,21 @@ CANONICAL_QUERIES: List[Dict[str, Any]] = [
     dict(id="Q1-capabilities", query="How can you help me?",
          expect_calls=["describe_capabilities"]),
     dict(id="Q2-lung-genes", query="What are the main genes involved in lung cancer?",
-         expect_calls=["get_targets"], expect_args={"get_targets": {"cancer_name": "lung"}}),
+         expect_calls=["get_targets"], expect_args={"get_targets": {"cancer_name": "lung"}},
+         # Content, not just routing. Without this, get_targets returning {"status":"ok","genes":[]}
+         # passes every other check on this query and renders an answer with no genes in it.
+         expect_genes=sorted({g for i, g, _ in _rows() if i == "lung"})),
     dict(id="Q3-breast-expressions",
          query="What is the median value expression of genes involved in breast cancer?",
          expect_calls=["get_targets", "get_expressions"],
          expect_args={"get_targets": {"cancer_name": "breast"},
-                      "get_expressions": {"cancer_name": "breast"}}),
+                      "get_expressions": {"cancer_name": "breast"}},
+         # The flagship query, and the one that shipped broken. Grounding alone cannot catch that:
+         # it asks whether the numbers present are real, and is vacuously true when there are none.
+         # So demand the numbers exist, and that they are the CSV's own. HER2 is spelled out here,
+         # not imported from genes.py: an expectation borrowed from the code under test is a
+         # tautology, and HGNC:3430 is a fact about the gene, not about this repo.
+         expect_values={("ERBB2" if g == "HER2" else g): v for i, g, v in _rows() if i == "breast"}),
     dict(id="Q4-esophageal",
          query="What is the median value expression of genes involved in esophageal cancer?",
          forbid_real_cohort=True),
@@ -230,6 +289,40 @@ def tier2() -> None:
             continue
         answer, names = box["answer"], [sc.name for sc in box["answer"].skill_calls]
 
+        # Every skill call must SUCCEED, not merely happen. Without this, a query whose every call
+        # raised TypeError still passed: routing saw the call was made, arguments saw what was sent,
+        # and grounding passed vacuously, since a failed lookup puts no numbers in the answer to
+        # check. `engine._dispatch` catches skill exceptions and returns them as a result, by
+        # design -- a skill bug is an answer, not a crash -- so nothing else here would ever notice.
+        #
+        # Whitelisted, not blacklisted. Checking `status != "skill_error"` let `invalid_arguments`
+        # through, so a schema/validator mismatch that bounced every call stayed invisible. These
+        # two are the only statuses that mean the skill did its job -- `unknown_indication` very
+        # much included: refusing esophageal IS the skill working.
+        def every_call_ok(answer=answer) -> bool:
+            good = {"ok", "unknown_indication"}
+            broken = [f"{sc.name} -> {sc.result.get('status')}: {sc.result.get('error', '')}".strip()
+                      for sc in answer.skill_calls
+                      if not (isinstance(sc.result, dict) and sc.result.get("status") in good)]
+            assert not broken, "; ".join(broken)
+            return True
+
+        check(f"{c['id']}: every skill call returned a usable result (ok / unknown_indication)",
+              every_call_ok)
+
+        if c.get("expect_genes"):
+            def genes_ok(c=c, answer=answer) -> bool:
+                got: set = set()
+                for sc in answer.skill_calls:
+                    if sc.name == "get_targets" and isinstance(sc.result, dict):
+                        got |= set(sc.result.get("genes") or [])
+                assert got, "get_targets returned no genes at all -- the answer would list none"
+                missing = set(c["expect_genes"]) - got
+                assert not missing, f"missing from the listing: {sorted(missing)}"
+                return True
+
+            check(f"{c['id']}: the cohort's genes are all present, and are the CSV's own", genes_ok)
+
         for skill in c.get("expect_calls", []):
             check(f"{c['id']} routing: {skill} was called (called {names})",
                   lambda skill=skill, names=names: skill in names)
@@ -239,6 +332,23 @@ def tier2() -> None:
                 matching = [sc for sc in answer.skill_calls if sc.name == skill]
                 return any(all(sc.arguments.get(k) == v for k, v in expected.items()) for sc in matching)
             check(f"{c['id']} arguments: {skill} carries {expected}", args_ok)
+
+        if c.get("expect_values"):
+            def values_ok(c=c, answer=answer) -> bool:
+                got: Dict[str, float] = {}
+                for sc in answer.skill_calls:
+                    if sc.name == "get_expressions" and isinstance(sc.result, dict):
+                        got.update(sc.result.get("values") or {})
+                expected = c["expect_values"]
+                assert got, "get_expressions returned no values at all -- the table would be empty"
+                missing = set(expected) - set(got)
+                assert not missing, f"never looked up: {sorted(missing)}"
+                wrong = {g: (got[g], expected[g]) for g in expected if abs(got[g] - expected[g]) > 1e-9}
+                assert not wrong, f"value disagrees with the CSV: {wrong}"
+                return True
+
+            check(f"{c['id']}: every breast gene's median is present and is the CSV's own value",
+                  values_ok)
 
         if c.get("forbid_real_cohort"):
             check(

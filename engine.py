@@ -34,16 +34,41 @@ class ConfigurationError(RuntimeError):
 
 NO_API_KEY = (
     "I need an OpenRouter API key before I can answer anything. This is a setup step, not a "
-    "fault: copy .env.example to .env and set OPENROUTER_API_KEY, then start me again."
+    "fault: create a file named .env next to this app, put OPENROUTER_API_KEY=sk-or-... in it, "
+    "then start me again."
 )
 
 # Layer 1 (always visible): we changed an identifier on the reader. True in both directions --
 # the user typed HER2, or the user typed nothing and the file said HER2 -- because either way
 # the symbol on screen is not the symbol in the CSV, and that is an inference we made for them.
+# Two halves, because they answer different questions and only one of them generalises.
+#
+# The identity: what the two symbols ARE. Generic, so it holds for all twelve aliases.
+REWRITE_IDENTITY = "{frm} and {to} are two names for the same gene."
+
+# The gloss: the same fact, told properly, for the one alias a reader of this dataset actually
+# meets -- HER2 is the reason the breast cohort is interesting at all. Keyed by approved symbol.
+# It REPLACES the identity line rather than joining it, or the reader is told twice in two
+# paragraphs that these are the same gene, which reads like a stutter and gets skimmed.
+REWRITE_GLOSS: Dict[str, str] = {
+    "ERBB2": (
+        "HER2 (Human Epidermal growth factor Receptor 2) and ERBB2 (Erb-B2 Receptor Tyrosine "
+        "Kinase 2) are two names for the same exact thing. ERBB2 is the official name of the "
+        "gene, while HER2 is the name of the protein it creates. Together, they act as an "
+        '"on-switch" that tells cells when to grow and divide.'
+    ),
+}
+
+# The disclosure: what WE did to the symbol. Always shown, under whichever of the two above ran,
+# because this is the part the reader is owed -- the name on screen is not the name they gave us.
+#
+# It does NOT say "the dataset records it as {frm}", which is what it used to say and which is not
+# always true: `frm` is the symbol that was ASKED FOR, not the one on disk. Ask for NEU (an alias
+# genes.py knows) and that sentence claimed the CSV holds "NEU". It holds HER2. A false statement
+# about the data, in the one panel whose whole job is to be straight about the data.
 REWRITE_NOTE = (
-    "{frm} and {to} are two names for the same gene. The dataset records it as {frm}; this "
-    "answer uses {to}, the current approved symbol, so one gene has one name throughout. "
-    "Asking for either name reaches the same row."
+    "{to} is the current approved symbol for {frm}; this answer uses it throughout, so one gene "
+    "has one name. Asking for either name reaches the same row."
 )
 
 # The load-bearing sentence of the whole product: absence of evidence, rendered as an answer

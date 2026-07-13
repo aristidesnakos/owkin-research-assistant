@@ -9,7 +9,16 @@ import sys
 import textwrap
 
 import skills
-from engine import NOT_IN_DATASET, REWRITE_NOTE, TRACE_NOTE, AnswerObject, ConfigurationError, answer
+from engine import (
+    NOT_IN_DATASET,
+    REWRITE_GLOSS,
+    REWRITE_IDENTITY,
+    REWRITE_NOTE,
+    TRACE_NOTE,
+    AnswerObject,
+    ConfigurationError,
+    answer,
+)
 
 WIDTH = 78
 RULE = "-" * WIDTH
@@ -51,7 +60,13 @@ def render(a: AnswerObject) -> str:
                     _wrap("The indications I do have: " + ", ".join(result["available"]))]
             break
 
+    # The gloss (what the gene is) leads, falling back to the generic identity line; the
+    # disclosure (what we renamed, and why the screen disagrees with the file) always follows.
     for rewrite in a.rewrites():
+        lead = REWRITE_GLOSS.get(rewrite["to"]) or REWRITE_IDENTITY.format(
+            frm=rewrite["from"], to=rewrite["to"]
+        )
+        out += ["", _wrap(lead)]
         out += ["", _wrap(REWRITE_NOTE.format(frm=rewrite["from"], to=rewrite["to"]))]
 
     if expressions and expressions.get("values"):

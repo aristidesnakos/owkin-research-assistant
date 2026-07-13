@@ -104,7 +104,7 @@ def get_targets(cancer_name: str) -> Dict[str, Any]:
     }
 
 
-def get_expressions(genes_requested: Sequence[str] | str, cancer_name: str) -> Dict[str, Any]:
+def get_expressions(genes: Sequence[str] | str, cancer_name: str) -> Dict[str, Any]:
     """The recorded median value of each gene, within one cohort.
 
     `cancer_name` is required, and that is the whole point: TP53 is 0.233 in breast and 0.071 in
@@ -112,8 +112,15 @@ def get_expressions(genes_requested: Sequence[str] | str, cancer_name: str) -> D
     then resolved the ambiguity by keeping the first matching row -- that is, by CSV file order.
     pandas still did the arithmetic, so the guarantee held for computation and failed for
     selection. For a question that names no cohort, use `get_gene_profile`.
+
+    The parameter is `genes` because the tool schema says `genes`, and the engine dispatches the
+    model's arguments straight through as `**arguments`. A signature that disagrees with its own
+    schema is not a naming preference; it is a skill that cannot be called. This one was briefly
+    `genes_requested`, to dodge the `genes` module imported above -- and every value lookup in the
+    product raised TypeError. The shadow is real but local: nothing in this function's body touches
+    the module, so the name is free here. `_canonicalize` does the resolving, and it is out of scope.
     """
-    approved, rewrites = _canonicalize(genes_requested)
+    approved, rewrites = _canonicalize(genes)
     cohort = indications.resolve(cancer_name)
     if cohort is None:
         return {
@@ -145,7 +152,7 @@ def get_expressions(genes_requested: Sequence[str] | str, cancer_name: str) -> D
     return result
 
 
-def get_gene_profile(genes_requested: Sequence[str] | str) -> Dict[str, Any]:
+def get_gene_profile(genes: Sequence[str] | str) -> Dict[str, Any]:
     """Every (cancer, median_value) pair this dataset holds for a gene.
 
     The answer when a question names a gene but no cohort. It structurally cannot collapse to a
@@ -153,7 +160,7 @@ def get_gene_profile(genes_requested: Sequence[str] | str) -> Dict[str, Any]:
     would have been picked by row order. There is no correct scalar answer to "the median of TP53";
     the question is malformed, and handing back all eight pairs is the honest reply.
     """
-    approved, rewrites = _canonicalize(genes_requested)
+    approved, rewrites = _canonicalize(genes)
     df = load_frame()
 
     profiles: Dict[str, List[Dict[str, Any]]] = {}
