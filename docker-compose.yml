@@ -1,0 +1,15 @@
+# The web app: http://localhost:8501
+#
+#   cp .env.example .env    # then add your OpenRouter key
+#   docker compose up
+services:
+  web:
+    build: .
+    ports:
+      - "8501:8501"
+    # Injected at runtime, never baked into an image layer. Compose interpolates these
+    # from ./.env automatically. The `:-` default means a missing .env yields an empty
+    # key and a clear in-app error, rather than a compose failure that hides the cause.
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}

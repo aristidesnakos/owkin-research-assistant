@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+
+# The exercise brief is Owkin's confidential material. Never publish it.
+docs/*.pdf
+
+# Working scaffolding: not part of the deliverable.
+.attic/
+query_audit.jsonl
+CLAUDE.md
+.claude/

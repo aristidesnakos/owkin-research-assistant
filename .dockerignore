@@ -1,0 +1,35 @@
+# The Dockerfile does `COPY . .`, so this file is the control that keeps secrets and
+# junk out of the image. Image layers are readable by anyone who can pull the image.
+
+# Secrets. Non-negotiable.
+.env
+.env.*
+!.env.example
+
+# VCS and agent/editor state
+.git
+.gitignore
+.claude
+CLAUDE.md
+.attic/
+
+# Python build and environment artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Not needed at runtime
+docs/
+README.md
+
+# Dev-only artifacts: the eval harness and its generated audit log are working
+# scaffolding (see .gitignore), not part of the deliverable, and must not bloat
+# or leak into the image. The data CSV is runtime-required and is NOT excluded.
+evals.py
+query_audit.jsonl
+*.jsonl
+
+# OS noise
+.DS_Store
