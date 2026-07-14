@@ -39,12 +39,19 @@ Consequences, enforced in code rather than requested in a prompt:
   dispersion, and neither is here.
 - **No aggregate across genes.** A median of medians aggregates over *genes*, not samples. Medians
   do not compose, and the result has no biological referent. No such skill exists.
+- **Cross-cohort comparison of one gene is *conditional*, not safe.** Every value in this file lies
+  between **0.003 and 0.985**. Raw TPM is unbounded — real genes reach the hundreds — so whatever
+  this is, it has been normalized into a bounded range, and nothing records *against what*. If the
+  normalization is per-sample (TPM-like), then TP53's 0.071 in gastric and 0.972 in ovarian are two
+  measurements of one thing, and comparable. If it is per-cohort (a percentile or rank within each
+  cancer's own patients), they are positions in two different races and are **not** comparable. The
+  dataset does not say which, so neither does the tool.
 
 `skills.py` attaches this caveat (`UNIT_NOTE`), code-authored, to every result carrying a number.
 It is reproduced below **verbatim** from `skills.UNIT_NOTE`, which remains the source of truth: if
 the two ever disagree, the code is right and this file is stale.
 
-> The unit of median_value is not recorded anywhere in this dataset -- it is not TPM, FPKM, a z-score or a percentile, or if it is, nothing says so. Values can be reported, and compared for the same gene across cohorts, but no claim about 'high' or 'low' expression is supported, and two different genes are not on a known common scale.
+> The unit of median_value is not recorded anywhere in this dataset -- it is not TPM, FPKM, a z-score or a percentile, or if it is, nothing says so. Values can be reported as the file records them, but no claim about 'high' or 'low' expression is supported, two different genes are not on a known common scale, and even one gene's values across cohorts are comparable only if the value was normalized the same way in every cohort -- which nothing states.
 
 ## Also undefined
 

@@ -1,20 +1,15 @@
 """The skills the model may call. Every number in every answer is computed here, in pandas.
 
-The model routes; this module computes. That split is the product's one guarantee, and it used to
-leak in a way worth naming, because the fix shapes every function below.
+The model routes; this module computes.
 
-**An empty container was the universal sentinel.** `get_targets` returned a bare `[]` and
-`get_expressions` a bare `{}`, and between them those encoded five different conditions: the cohort
-is absent; the cohort is present but the phrasing missed it; the gene is absent; the gene is
-present under another identifier (HER2/ERBB2); the caller passed a bare string, so `list("TP53")`
-became `['T','P','5','3']` and matched nothing. The prompt then told the model to read emptiness as
-fact. Every bug therefore converted into a confident false statement with a clean audit trail --
-the trace panel laundered the error.
+**No skill returns a bare container**, and that shapes every function below. An empty `[]` or `{}`
+cannot distinguish an absent cohort from a misphrased one, nor an absent gene from a gene recorded
+under another identifier -- and the model reads emptiness as fact, so each ambiguity converts into a
+confident false statement carrying a clean audit trail. Instead: every gene asked for comes back in
+`values` or in `not_found`, and every cohort term comes back with a `status`.
 
-So no skill returns a bare container. Every gene asked for comes back in `values` or in
-`not_found`; every cohort term comes back with a `status`. And `get_expressions` requires a cohort,
-because picking one of TP53's eight rows on the caller's behalf is a scientific selection, and
-selection is computation.
+`get_expressions` requires a cohort, because picking one of TP53's eight rows on the caller's behalf
+is a scientific selection, and selection is computation.
 
 There is no across-gene aggregate skill, and that absence is deliberate -- see AGGREGATE_NOTE.
 """
@@ -30,9 +25,10 @@ from data import available_genes, available_indications, load_frame
 # and it is the one thing the dataset never records.
 UNIT_NOTE = (
     "The unit of median_value is not recorded anywhere in this dataset -- it is not TPM, FPKM, a "
-    "z-score or a percentile, or if it is, nothing says so. Values can be reported, and compared "
-    "for the same gene across cohorts, but no claim about 'high' or 'low' expression is supported, "
-    "and two different genes are not on a known common scale."
+    "z-score or a percentile, or if it is, nothing says so. Values can be reported as the file "
+    "records them, but no claim about 'high' or 'low' expression is supported, two different genes "
+    "are not on a known common scale, and even one gene's values across cohorts are comparable only "
+    "if the value was normalized the same way in every cohort -- which nothing states."
 )
 
 # Why there is no aggregation function, authored here rather than improvised by the model. The
@@ -108,17 +104,16 @@ def get_expressions(genes: Sequence[str] | str, cancer_name: str) -> Dict[str, A
     """The recorded median value of each gene, within one cohort.
 
     `cancer_name` is required, and that is the whole point: TP53 is 0.233 in breast and 0.071 in
-    gastric, so a gene alone has no median value to report. The old signature made it optional and
-    then resolved the ambiguity by keeping the first matching row -- that is, by CSV file order.
-    pandas still did the arithmetic, so the guarantee held for computation and failed for
-    selection. For a question that names no cohort, use `get_gene_profile`.
+    gastric, so a gene alone has no median value to report. Make the cohort optional and the skill
+    must pick one of eight rows by file order -- pandas still does the arithmetic, so the guarantee
+    holds for computation and fails for selection. For a question that names no cohort, use
+    `get_gene_profile`.
 
-    The parameter is `genes` because the tool schema says `genes`, and the engine dispatches the
-    model's arguments straight through as `**arguments`. A signature that disagrees with its own
-    schema is not a naming preference; it is a skill that cannot be called. This one was briefly
-    `genes_requested`, to dodge the `genes` module imported above -- and every value lookup in the
-    product raised TypeError. The shadow is real but local: nothing in this function's body touches
-    the module, so the name is free here. `_canonicalize` does the resolving, and it is out of scope.
+    Do not rename the `genes` parameter. The engine dispatches the model's arguments as
+    `**arguments`, so the signature must match the tool schema exactly; a signature that disagrees
+    with its own schema is not a style question, it is a skill that cannot be called. It shadows the
+    `genes` module imported above, which is safe only because nothing in this body touches it --
+    `_canonicalize` does the resolving, and it is out of scope. An eval pins the match.
     """
     approved, rewrites = _canonicalize(genes)
     cohort = indications.resolve(cancer_name)

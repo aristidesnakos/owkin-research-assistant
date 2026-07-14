@@ -1,10 +1,10 @@
 """Streamlit adapter.
 
 Presentation only, with one exception that is the whole architecture: the table of genes and
-values is built from `skill_calls[-1].result`, not from the model's prose. The model writes the
-sentences; pandas writes the numbers. "The model never computes a number" is therefore not a
-claim about the prompt, it is a claim about this file -- there is no code path from a token the
-model emitted to a digit on the screen.
+values is built from the recorded skill result (`a.result("get_expressions")`), not from the
+model's prose. The model writes the sentences; pandas writes the numbers. "The model never
+computes a number" is therefore not a claim about the prompt, it is a claim about this file --
+there is no code path from a token the model emitted to a digit on the screen.
 
 Caveats are layered rather than dumped inline: a caveat attached to every number becomes wallpaper
 and stops being read. Four layers, ordered by what a reader loses by skipping them:
@@ -75,7 +75,9 @@ st.markdown(
       }
       .k-table tr:last-child td { border-bottom: none; }
       .k-gene { font-weight: 600; letter-spacing: .01em; }
-      /* Tabular figures, so the decimal points form a column and the eye can compare down it. */
+      /* Tabular figures, so digits share a width and the decimal points align. Legibility only --
+         NOT an invitation to read down the column: these genes share no known scale, which is why
+         _table() sorts by name. Alignment is not ranking. */
       .k-num {
           text-align: right; font-variant-numeric: tabular-nums;
           font-feature-settings: "tnum"; font-size: 1.05rem;

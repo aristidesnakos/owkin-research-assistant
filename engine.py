@@ -2,9 +2,10 @@
 
 The model chooses which skill to call and with what arguments, and writes the framing
 sentences. It does not write the numbers. The prompt forbids it and, more to the point, the
-adapters never read a number out of the model's prose: they render the table straight from
-`skill_calls[-1].result`. The guarantee is therefore structural rather than promised -- there
-is no path by which a model-authored digit reaches the screen.
+adapters never read a number out of the model's prose: they render the table from
+`AnswerObject.result("get_expressions")` -- the recorded skill calls, searched backwards by
+name. The guarantee is therefore structural rather than promised: there is no path by which a
+model-authored digit reaches the screen.
 """
 from __future__ import annotations
 
@@ -59,13 +60,13 @@ REWRITE_GLOSS: Dict[str, str] = {
     ),
 }
 
-# The disclosure: what WE did to the symbol. Always shown, under whichever of the two above ran,
-# because this is the part the reader is owed -- the name on screen is not the name they gave us.
+# The disclosure: what WE did to the symbol. Always shown, under whichever of the two above ran --
+# the name on screen is not the name the reader gave us, and that rewrite is our inference.
 #
-# It does NOT say "the dataset records it as {frm}", which is what it used to say and which is not
-# always true: `frm` is the symbol that was ASKED FOR, not the one on disk. Ask for NEU (an alias
-# genes.py knows) and that sentence claimed the CSV holds "NEU". It holds HER2. A false statement
-# about the data, in the one panel whose whole job is to be straight about the data.
+# It must NOT say "the dataset records it as {frm}": `frm` is the symbol that was ASKED FOR, not the
+# one on disk. Ask for NEU (an alias genes.py knows) and that sentence would claim the CSV holds
+# "NEU". It holds HER2 -- a false statement about the data, in the panel whose job is to be straight
+# about the data.
 REWRITE_NOTE = (
     "{to} is the current approved symbol for {frm}; this answer uses it throughout, so one gene "
     "has one name. Asking for either name reaches the same row."
