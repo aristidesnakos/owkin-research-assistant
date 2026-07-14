@@ -19,11 +19,19 @@ __pycache__/
 venv/
 *.egg-info/
 
-# Not needed at runtime -- except the dataset, which lives here and IS. The negation is
-# load-bearing: without it the image builds clean and the app dies at import, because the
-# only thing it has to read is the one file we excluded.
+# Not needed at runtime -- except two files that ARE, so both negations are load-bearing.
+#
+#   the CSV:  without it the image builds clean and the app dies at import, because the
+#             only thing it has to read is the one file we excluded.
+#   the dict: a Tier-1 eval asserts DATA_DICTIONARY.md quotes skills.UNIT_NOTE verbatim, so
+#             the doc cannot drift from the caveat users see. Exclude it and that eval fails
+#             *only inside the image* -- green on the laptop, red in the artifact we ship,
+#             which is the one place a reviewer runs it (see below). Caught by running it.
+#
+# The brief's PDF stays out: it is Owkin's confidential material (docs/*.pdf, .gitignore).
 docs/
 !docs/owkin_take_home_data.csv
+!docs/DATA_DICTIONARY.md
 README.md
 
 # Generated audit log: working scaffolding (see .gitignore), and it reached 555 KB during

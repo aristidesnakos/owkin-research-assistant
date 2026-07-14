@@ -6,7 +6,7 @@
 |---|---|---|
 | `cancer_indication` | string | 10 values: `breast` `colorectal` `gastric` `glioblastoma` `lung` `melanoma` `ovarian` `pancreatic` `prostate` `renal` |
 | `gene` | string | 54 distinct strings — but **53 genes**: `HER2` (breast) and `ERBB2` (gastric) are one gene, HGNC:3430. `data.py` canonicalizes to the HGNC-approved symbol at load. |
-| `median_value` | float | 3 decimal places, range 0.003–0.985. **No recorded unit.** |
+| `median_value` | float | Range 0.003–0.985. Recorded to **at most** 3 decimal places — 70 rows carry 3, ten carry 2 (`breast,HER2,0.42`), one carries 1. The app renders every value to 3 (`{value:.3f}`), so `0.42` in the file shows as `0.420` on screen: display precision, not recorded precision, and the file is what to quote. **No recorded unit.** |
 
 Cohorts hold 5–10 genes each. **14** genes appear in more than one cohort — and the count is itself
 a demonstration of the bug this repo exists to fix: keyed on the raw string you get **13**, because

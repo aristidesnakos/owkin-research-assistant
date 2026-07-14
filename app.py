@@ -43,12 +43,56 @@ EXAMPLES = [
 
 st.set_page_config(page_title="K-mini", page_icon="🧬", layout="centered")
 
-# Sizes, rules and spacing only. Colour comes from Streamlit's theme (currentColor and a neutral
-# grey at low alpha), so nothing here assumes a dark background.
+# Palette and type. The colours are Owkin's own, lifted from the --owkin-colours--* custom
+# properties on owkin.com, and set once here as variables so there is a single place to change
+# them. .streamlit/config.toml carries the same values for the chrome Streamlit paints itself
+# (sidebar, buttons, inputs) -- that file is the theme; this is what sits on top of it.
+#
+# The rule this palette obeys: COLOUR IS STRUCTURAL, NEVER DATA-ENCODING. Nothing on this page is
+# tinted by its value. A median shaded red-to-green, or a bar drawn to its magnitude, would be the
+# interpretation the whole tool refuses to make -- these genes share no known scale (skills.UNIT_NOTE),
+# so "more colour" and "bigger bar" are claims the data cannot support. Blue marks *disclosure*
+# (a symbol we rewrote, a call we made); the rules and the beige do hierarchy. The numbers stay black.
 st.markdown(
     """
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+      :root {
+        --k-blue:   #1439c1;   /* --owkin-colours--blue   */
+        --k-beige:  #faf4ed;   /* --owkin-colours--beige  */
+        --k-greige: #d6cdc7;   /* --owkin-colours--greige */
+        --k-teal:   #32c6c6;   /* --owkin-colours--teal   */
+        --k-ink:    #141414;
+      }
+
       .block-container { max-width: 46rem; padding-top: 3.5rem; padding-bottom: 7rem; }
+
+      /* The title is the one place the brand speaks in its own voice. */
+      h1 { letter-spacing: -.03em; font-weight: 700; }
+
+      /* A gradient hairline across the top -- Owkin's site runs a gradient stripe, and this is the
+         one purely decorative element here. Hung off the header, not the app container: the header
+         is painted above it and swallowed the bar when it was drawn lower in the stack. */
+      [data-testid="stHeader"]::before {
+          content: ""; position: fixed; inset: 0 0 auto 0; height: 3px;
+          background: linear-gradient(90deg, var(--k-blue), var(--k-teal));
+      }
+
+      /* Question and answer, told apart by structure rather than by two competing fills: the user's
+         turn is a quiet card on white, the assistant's sits directly on the beige and carries a
+         blue rule -- the same blue every disclosure on the page uses. Hooked on data-testid, which
+         is Streamlit's stable handle; the emotion class names beside it are build-generated and
+         change between releases. */
+      .stChatMessage { background: transparent; border: none; }
+      .stChatMessage:has([data-testid="stChatMessageAvatarUser"]) {
+          background: #fff; border: 1px solid var(--k-greige);
+          border-radius: .6rem; padding: .3rem .9rem;
+      }
+      .stChatMessage:has([data-testid="stChatMessageAvatarAssistant"]) {
+          border-left: 2px solid var(--k-blue); border-radius: 0;
+          padding-left: 1.1rem; margin-top: .4rem;
+      }
 
       /* The answer is prose, and prose is meant to be read, not scanned. The assistant's own
          first paragraph is the lede and carries the answer, so it is set largest. Sized here
@@ -62,16 +106,28 @@ st.markdown(
 
       /* The value table. A report, not a spreadsheet widget: no sort handles, no index
          gutter, no scrollbar -- ten rows do not need infrastructure. */
-      .k-table { width: 100%; border-collapse: collapse; margin: .25rem 0 1.25rem; }
-      /* opacity .75, not .55: at .55 this washed out to 3.22:1 on Streamlit's light theme, under
-         the 4.5:1 WCAG AA floor for text this small. Dark theme was always fine; light was not. */
+      .k-table {
+          width: 100%; border-collapse: collapse; margin: .25rem 0 1.25rem;
+          background: #fff; border: 1px solid var(--k-greige); border-radius: .6rem;
+          overflow: hidden;
+      }
+      /* `border: none` first, and it is not redundant: Streamlit's base stylesheet puts a border on
+         all four sides of every td, so overriding only border-bottom left a vertical rule down the
+         middle of the table -- column grid lines, in a two-column report that does not need them. */
+      .k-table th, .k-table td { border: none; }
+
+      /* The header is the one branded element in the table -- Owkin blue on beige. The BODY stays
+         black on white on purpose: see the note at the top of this file. No cell is coloured by
+         what it contains. */
       .k-table th {
-          text-align: left; font-size: .75rem; font-weight: 600; letter-spacing: .09em;
-          text-transform: uppercase; opacity: .75; padding: 0 0 .6rem;
-          border-bottom: 1px solid rgba(128,128,128,.28);
+          text-align: left; font-size: .72rem; font-weight: 600; letter-spacing: .09em;
+          text-transform: uppercase; padding: .75rem 1rem .7rem;
+          color: var(--k-blue); background: var(--k-beige);
+          border-bottom: 1px solid var(--k-greige) !important;
       }
       .k-table td {
-          padding: .6rem 0; border-bottom: 1px solid rgba(128,128,128,.14); font-size: 1.02rem;
+          padding: .6rem 1rem; font-size: 1.02rem;
+          border-bottom: 1px solid rgba(214,205,199,.5) !important;
       }
       .k-table tr:last-child td { border-bottom: none; }
       .k-gene { font-weight: 600; letter-spacing: .01em; }
@@ -83,24 +139,42 @@ st.markdown(
           font-feature-settings: "tnum"; font-size: 1.05rem;
       }
 
-      .k-chips { font-size: .95rem; line-height: 2.1; }
+      /* Gene symbols and cohort names, as chips. Streamlit's stock <code> is a red-on-grey that
+         reads like an error; these are identifiers, so they are set in the brand's ink on beige. */
+      .k-chips { font-size: .95rem; line-height: 2.2; }
+      .k-chips code, .stChatMessage p > code {
+          background: var(--k-beige); border: 1px solid var(--k-greige); color: var(--k-ink);
+          border-radius: .35rem; padding: .18rem .45rem; font-size: .88rem; font-weight: 500;
+      }
 
       /* Provenance. The claim is that the numbers were computed, so it is set like a citation:
-         a rule, a monospace call, an indented result. Not a JSON dump the reader skips. */
+         a rule, a monospace call, an indented result. Not a JSON dump the reader skips.
+         The rule is blue: this is the page's central disclosure, and blue is what disclosure
+         wears here -- the same colour as the HER2 -> ERBB2 callout. */
       .k-prov {
-          border-left: 2px solid rgba(128,128,128,.35); padding: .15rem 0 .15rem .95rem;
+          border-left: 2px solid var(--k-blue); padding: .15rem 0 .15rem .95rem;
           margin: .1rem 0 .9rem;
       }
       .k-call {
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .86rem;
           line-height: 1.55; word-break: break-word;
       }
-      .k-call .k-skill { font-weight: 700; }
-      .k-ret { opacity: .68; padding-left: 1.1rem; display: block; margin-top: .2rem; }
+      .k-call .k-skill { font-weight: 700; color: var(--k-blue); }
+      .k-ret { opacity: .7; padding-left: 1.1rem; display: block; margin-top: .2rem; }
       .k-seal {
-          font-size: .82rem; opacity: .72; line-height: 1.6;
-          border-top: 1px solid rgba(128,128,128,.2); padding-top: .7rem; margin-top: .3rem;
+          font-size: .82rem; opacity: .78; line-height: 1.6;
+          border-top: 1px solid var(--k-greige); padding-top: .7rem; margin-top: .3rem;
       }
+
+      /* The example buttons are an invitation, not a call to action: outlined, not filled, so they
+         do not out-shout the question box, which is the actual product. */
+      .stButton > button {
+          background: #fff; border: 1px solid var(--k-greige); color: var(--k-ink);
+          justify-content: flex-start; font-weight: 400;
+      }
+      /* Streamlit puts the label in its own centred <p>, so aligning the button is not enough. */
+      .stButton > button p { text-align: left; width: 100%; }
+      .stButton > button:hover { border-color: var(--k-blue); color: var(--k-blue); }
     </style>
     """,
     unsafe_allow_html=True,

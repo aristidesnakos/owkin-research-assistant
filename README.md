@@ -14,6 +14,18 @@ app calls a hosted model, so it won't run without one). No GPU — all inference
 2. `docker compose up`
 3. Open **http://localhost:8501**.
 
+A query costs a fraction of a cent. It routes to `openai/gpt-5.6-luna` by default — the model this
+was built and verified against — and any tool-calling model works: set `OPENROUTER_MODEL` to swap it.
+
+**Where this has actually been run:** macOS (Apple Silicon), in Docker, which is how I verified it.
+**I have not run it on Windows 11.** The brief asks for both, so I'd rather say that than imply a test
+I didn't do. Nothing in it is platform-specific — one CPU-only container, remote inference, no GPU, no
+native builds, no host paths — so I expect Docker Desktop on Windows to behave identically, but expect
+is not verified, and on this repo that distinction is the whole point.
+
+If you'd rather not create a key at all, `python evals.py` runs 13 checks against the CSV with no key
+and no network (see [Tests](#tests)).
+
 <details>
 <summary><b>No Docker?</b> Python 3.11 works too.</summary>
 
@@ -72,7 +84,12 @@ Ten cancers, one undivided group each: no ER/PR status, no NSCLC/SCLC split, no 
 **Fix:** subtype questions are refused, not approximated. "ESR1 in TNBC" answered from the breast
 cohort isn't a rough estimate — TNBC is ER-negative *by definition* while the cohort is unselected
 and majority ER-positive, so the answer would be biased at exactly the gene asked about, in a
-direction the reader can't see.
+direction the reader can't see. `nsclc`, `sclc`, `tnbc`, `colon`, `rectal` and `skin` all resolve to
+nothing, and an eval pins it.
+
+That eval exists because the code once broke this rule while the paragraph above still claimed it:
+`nsclc` quietly resolved to `lung` while `sclc` was refused — one subtype of an unstratified cohort
+silently approximated, its sibling declined. A guarantee stated in prose is not a guarantee.
 
 ### 5. `median_value` has no recorded unit — and this is the question I'd ask you
 
@@ -137,7 +154,11 @@ does not quietly answer about gastric instead.
 Streamlit / CLI  ->  engine.answer()  <->  OpenRouter (any tool-calling model)
                           |
                           v
-                     skills.py (pandas)  ->  genes.py (HGNC)  ->  data.py -> CSV
+                     skills.py (pandas)          all arithmetic happens here
+                          |
+                          +--  indications.py    a cohort we hold — or a refusal
+                          +--  genes.py          HER2 -> ERBB2 (HGNC)
+                          +--  data.py  ->  CSV
 ```
 
 The model picks a skill and its arguments; the skill does the arithmetic in pandas and returns JSON;
@@ -152,6 +173,20 @@ check the number against the code instead of trusting the model.
 | `indications.py` | cohort vocabulary: a term is a known cohort, or it is refused |
 | `data.py` | data access — swapping the CSV for a database is confined to this module |
 | `app.py` / `cli.py` | Streamlit and terminal adapters — presentation only |
+
+### One note on the interface
+
+The palette is Owkin's own, read from the `--owkin-colours--*` CSS variables on owkin.com rather than
+eyeballed: beige `#faf4ed`, blue `#1439c1`, greige `#d6cdc7`, teal `#32c6c6`. It's plain Streamlit
+theming (`.streamlit/config.toml` plus one CSS block) — no component library, no chat framework. A
+chat framework's message renderer is exactly the layer that would tempt someone to render the table
+from the model's prose, which is the one thing this design forbids.
+
+The rule the styling obeys: **colour is structural, never data-encoding.** No median is shaded by its
+magnitude, and no bar is drawn to its length. That's deliberate — a red-to-green ramp across these
+values would assert exactly the "high vs low" reading the tool refuses in prose, and these genes
+share no known scale to be ranked on (finding 5). Blue marks *disclosure* — a symbol we rewrote, a
+call we made. The numbers stay black.
 
 ## (a) The AI components, and the trade-offs
 
@@ -230,16 +265,30 @@ a test that passes — that's trivial to write, and it's exactly what produced t
 docker compose run --rm web python evals.py      # or: python evals.py
 ```
 
-35 checks. **13 need no API key**: pandas assertions whose expected values are read from the CSV *at
-test time* (see (b)), plus a mutation test proving the suite goes red if data and code drift apart.
-The other **22 need the key**: they run the four questions end-to-end and assert the right skill
+36 checks, and the Docker command is the one to trust: it runs them in the artifact you actually
+ship, which is not the same thing as your laptop (that command used to fail, for a reason worth
+reading — see below).
+
+**14 need no API key.** Mostly pandas assertions whose expected values are read from the CSV *at test
+time*, never hardcoded (see (b) — a hardcoded one is what certified the BRCA2 bug). Plus four that
+guard the seams rather than the arithmetic: every tool schema's parameters match its function's
+signature, `docs/DATA_DICTIONARY.md` quotes `skills.UNIT_NOTE` verbatim, no subtype resolves to the
+cohort that contains it, and a **mutation test** that edits a value in a copy of the CSV and asserts
+the suite notices — proof that these tests can go red.
+
+**The other 22 need the key.** They run the four questions end-to-end and assert the right skill
 fired, that the genes and values returned are the CSV's own, and that every number in the answer text
 traces back to a skill result.
+
+**Run them in Docker.** `docs/DATA_DICTIONARY.md` was excluded from the image, so the check that pins
+that doc to the code passed on the laptop and failed in the image — green where it didn't matter, red
+where it did. Nobody had run the suite inside the container. The deliverable is the image, not the
+working tree, and they drift apart in silence.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `OPENROUTER_API_KEY` | — | **required** |
-| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` | any tool-calling model |
+| `OPENROUTER_MODEL` | `openai/gpt-5.6-luna` | any tool-calling model |
 | `OWKIN_DATA_PATH` | bundled CSV | point at a different dataset |

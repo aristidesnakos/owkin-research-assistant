@@ -28,6 +28,12 @@ from data import available_genes, available_indications  # noqa: E402
 MAX_STEPS = 6
 TIMEOUT_S = 30  # the SDK retries with backoff on its own; the defect was the 600s default
 
+# The model this was developed and verified against. Any tool-calling model works -- set
+# OPENROUTER_MODEL to swap it -- but this is the one the evals were last run green on, so it
+# is what a reviewer gets by default. Defined once: it used to be spelled out at both use
+# sites, and two copies of a default is one copy waiting to drift.
+DEFAULT_MODEL = "openai/gpt-5.6-luna"
+
 
 class ConfigurationError(RuntimeError):
     """The product is unconfigured, not broken. Adapters show the message, never a traceback."""
@@ -262,7 +268,10 @@ class AnswerObject:
     skill_calls: List[SkillCall] = field(default_factory=list)
     # Read from the environment at construction, not bound as a dataclass default: a default is
     # evaluated once, at import, and would stamp every answer with whatever model loaded first.
-    model: str = field(default_factory=lambda: os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini"))
+    # `or`, not a .get default: docker-compose passes OPENROUTER_MODEL through as an empty
+    # string when it is absent from .env, and "" is set-but-falsy. A .get default would sail
+    # past it and ask OpenRouter for a model named "".
+    model: str = field(default_factory=lambda: os.environ.get("OPENROUTER_MODEL") or DEFAULT_MODEL)
 
     def result(self, *names: str) -> Optional[Dict[str, Any]]:
         """The latest result from any of `names`. This is what an adapter renders."""
@@ -343,7 +352,7 @@ def answer(query: str) -> AnswerObject:
         api_key=key,
         timeout=TIMEOUT_S,
     )
-    model = os.environ.get("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+    model = os.environ.get("OPENROUTER_MODEL") or DEFAULT_MODEL
     messages: List[Dict[str, Any]] = [
         {"role": "system", "content": _system_prompt()},
         {"role": "user", "content": query},

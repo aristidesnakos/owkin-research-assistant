@@ -1,0 +1,31 @@
+# Owkin's own palette, read from the CSS custom properties on owkin.com (--owkin-colours--*)
+# rather than eyeballed from a screenshot:
+#
+#   beige   #faf4ed   the site background. Owkin's brand is warm and light -- it is not grey.
+#   blue    #1439c1   the primary accent
+#   greige  #d6cdc7   rules and borders
+#   black   #141414   text
+#
+# Their display face is Gattica, which is proprietary; Inter is what they set body copy in and is
+# open, so that is what we use. It is loaded in app.py with a full system fallback stack, so the
+# app is never waiting on a font to render a number.
+[theme]
+base = "light"
+
+primaryColor = "#1439c1"           # buttons, focus rings, the chat input caret
+backgroundColor = "#faf4ed"         # beige, not the stock near-black
+secondaryBackgroundColor = "#ffffff"  # sidebar, expanders, message bubbles -- lifted off the beige
+textColor = "#141414"
+linkColor = "#1439c1"
+
+borderColor = "#d6cdc7"
+codeBackgroundColor = "#ffffff"
+
+font = "Inter, sans-serif"
+headingFont = "Inter, sans-serif"
+codeFont = "ui-monospace, SFMono-Regular, Menlo, monospace"
+
+baseRadius = "0.5rem"
+
+[server]
+headless = true

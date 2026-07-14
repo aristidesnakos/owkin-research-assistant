@@ -9,7 +9,16 @@ services:
       - "8501:8501"
     # Injected at runtime, never baked into an image layer. Compose interpolates these
     # from ./.env automatically. The `:-` default means a missing .env yields an empty
-    # key and a clear in-app error, rather than a compose failure that hides the cause.
+    # value and a clear in-app error, rather than a compose failure that hides the cause.
+    #
+    # Both fall back to empty on purpose. The model name is NOT repeated here: engine.py's
+    # DEFAULT_MODEL is the single source of truth, and it treats empty as unset. Naming the
+    # default in two files is how the two come to disagree.
     environment:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4o-mini}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
+      # The README documents this as configuration, so it has to reach the container -- it did
+      # not, and a variable that only works outside the documented way of running the app is a
+      # doc claiming what the code does not do. A path here must be one the container can see:
+      # mount the file in (`volumes:`) if it lives on the host.
+      OWKIN_DATA_PATH: ${OWKIN_DATA_PATH:-}

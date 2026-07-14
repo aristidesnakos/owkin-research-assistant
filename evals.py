@@ -183,6 +183,39 @@ def tier1() -> None:
         dictionary_quotes_the_real_note,
     )
 
+    # The README and indications.py both promise that a subtype is refused, never approximated
+    # from the cohort that contains it. The synonym table quietly broke that promise: `nsclc`
+    # resolved to `lung` while `sclc` resolved to nothing -- two subtypes of one unstratified
+    # cohort, one silently answered and one refused. Prose is not a guarantee; this is.
+    #
+    # A subtype question answered from its parent cohort is wrong in a direction the reader
+    # cannot see, which is the same failure as answering `esophageal` from `gastric` -- so it
+    # is pinned in the same place, and by a test that fails if anyone re-adds the shortcut.
+    def subtypes_and_unknowns_resolve_to_nothing() -> bool:
+        import indications  # local, like the imports above: a broken import is a FAIL, not a crash
+        for term in ("nsclc", "non-small cell lung cancer", "sclc", "small cell lung cancer",
+                     "tnbc", "triple negative breast cancer", "colon cancer", "rectal cancer",
+                     "skin cancer", "esophageal", "esophageal cancer"):
+            got = indications.resolve(term)
+            assert got is None, (
+                f"indications.resolve({term!r}) returned {got!r}, but it must refuse: {term!r} is "
+                f"not the same set of patients as {got!r}. Answering it from that cohort is a "
+                f"correct number about the wrong disease -- the one failure this system exists "
+                f"to prevent."
+            )
+        # The counterpart: a true synonym must still resolve, or the refusal is just breakage.
+        for term, expected in (("RCC", "renal"), ("kidney cancer", "renal"), ("GBM", "glioblastoma"),
+                               ("stomach cancer", "gastric"), ("breast", "breast")):
+            got = indications.resolve(term)
+            assert got == expected, f"indications.resolve({term!r}) = {got!r}, expected {expected!r}"
+        return True
+
+    check(
+        "subtypes and unknown cohorts resolve to nothing, while true synonyms still resolve -- "
+        "no term is answered from a cohort that merely contains it",
+        subtypes_and_unknowns_resolve_to_nothing,
+    )
+
     mutation_test()
 
 _MUTATION_PROBE = """

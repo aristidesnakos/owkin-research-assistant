@@ -24,23 +24,27 @@ from data import available_indications
 # Suffixes that distinguish no cohort in this file from another, so stripping one can only help.
 _SUFFIXES = (" cancer", " carcinoma", " tumor", " tumour", " adenocarcinoma")
 
-# Synonyms: another name for the same cohort, not a narrowing of it.
+# Synonyms: another name for the SAME cohort. Never a narrowing of one, and never a widening
+# either -- the entry must denote the same set of patients, or it does not belong here.
+#
+# That rule is load-bearing and this table used to break it. `nsclc -> lung` shipped, while
+# `sclc` resolved to nothing: two subtypes of one cohort, one silently approximated and one
+# refused, which is not a defensible position to hold in either direction. Also gone:
+# `colon`/`rectal` (subsites of colorectal, not colorectal), and `skin -> melanoma`, which is
+# the same error inverted -- most skin cancers are basal or squamous cell, whose biology is not
+# melanoma's, so it answered a broad question from a narrow cohort. All four now resolve to
+# None and the caller says what it does hold, which is the honest answer.
 _SYNONYMS: Dict[str, str] = {
     "rcc": "renal",
     "renal cell": "renal",
     "kidney": "renal",
-    "nsclc": "lung",
-    "non small cell lung": "lung",
     "gbm": "glioblastoma",
     "glioblastoma multiforme": "glioblastoma",
     "crc": "colorectal",
-    "colon": "colorectal",
-    "rectal": "colorectal",
     "bowel": "colorectal",
     "stomach": "gastric",
     "pancreas": "pancreatic",
     "ovary": "ovarian",
-    "skin": "melanoma",
 }
 
 
