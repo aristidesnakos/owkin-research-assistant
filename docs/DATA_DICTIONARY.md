@@ -1,6 +1,6 @@
 # Data dictionary
 
-`owkin_take_home_data.csv` — 81 rows, 3 columns, one row per (indication, gene) pair.
+`docs/owkin_take_home_data.csv` — 81 rows, 3 columns, one row per (indication, gene) pair.
 
 | Column | Type | Notes |
 |---|---|---|

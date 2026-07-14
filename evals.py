@@ -53,7 +53,7 @@ def check(name: str, fn: Callable[[], object]) -> bool:
 # an expectation derived by the code under test is not an expectation, it is a tautology.
 
 def _csv_path() -> str:
-    return os.environ.get("OWKIN_DATA_PATH") or os.path.join(ROOT, "owkin_take_home_data.csv")
+    return os.environ.get("OWKIN_DATA_PATH") or os.path.join(ROOT, "docs", "owkin_take_home_data.csv")
 
 def _rows(path: str = "") -> List[tuple]:
     with open(path or _csv_path(), newline="", encoding="utf-8") as fh:

@@ -19,8 +19,11 @@ __pycache__/
 venv/
 *.egg-info/
 
-# Not needed at runtime
+# Not needed at runtime -- except the dataset, which lives here and IS. The negation is
+# load-bearing: without it the image builds clean and the app dies at import, because the
+# only thing it has to read is the one file we excluded.
 docs/
+!docs/owkin_take_home_data.csv
 README.md
 
 # Generated audit log: working scaffolding (see .gitignore), and it reached 555 KB during

@@ -17,7 +17,7 @@ import pandas as pd
 
 import genes
 
-_DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "owkin_take_home_data.csv")
+_DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "docs", "owkin_take_home_data.csv")
 
 
 class DatasetError(RuntimeError):
